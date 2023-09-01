@@ -1,0 +1,221 @@
+---
+title: "Assignment 1 DATA2002"
+date: "`r Sys.Date()`"
+author: "520641008"
+format: 
+  html: 
+    embed-resources: true # Creates a single HTML file as output
+    code-fold: true # Code folding; allows you to show/hide code chunks
+    code-tools: true # Includes a menu to download the code file 
+    # code-tools are particularly important if you use inline R to 
+    # improve the reproducibility of your report
+table-of-contents: true # (Optional) Creates a table of contents
+number-sections: true # (Optional) Puts numbers next to heading/subheadings
+---
+
+## Introduction
+
+Professor Garth Tarr conducted a survey targeting students of the course DATA2X02 (Citation), with the results collected through Ed, a community forum dedicated to student's questions and discussions. While the survey was prominently featured as a pinned announcement on the platform, Although Professor Tarr announced the survey in lectures, we must note that not all DATA2X02 students actively participate on Ed or watch the lectures. Consequently, this means that the sample from which the survey results were drawn is not a random representation of all DATA2X02 students. (simplify this)
+
+The methodology of the survey potentially introduces several biases. The most prominent is a selection bias, resulting from the fact that the survey was exclusively available on Ed, a platform not universally used by all DATA2X02 students. This means that students not active on Ed were inadvertently excluded. Additionally, there might be a adherance bias, where certain students might start the survey but not complete it, further skewing the data. (primarily targeted to 2X02 students)
+
+-   Measurement bias
+
+There are concerns regarding the phrasing of certain survey questions, which could lead to bias or misinterpretation by respondents. For example, the question, "Do you tend to lean towards saying 'yes' or towards saying 'no' to things throughout life?" introduces ambiguity because of the vague reference to "things." and having the responses limited to only "yes" or "no" raises some bias. Additionally, the questions about height and the interval between haircuts allowed any form of response. This unrestricted format could lead to inconsistencies in the data if students provide answers in unexpected units or formats. Ideally, responses should have been limited to numerical inputs, and specifications should have been given for whether height should be in metric or imperial units.
+
+-   Maybe can also add how the survey had no required questions so filling out empty was valid
+
+-   Laptop brand should have been a selected
+
+-   Pineapple on pizza, why have other?
+
+-   No number validation on questions which request number
+
+### Data Wrangling
+
+The code for wrangling the data was performed in R (Citation) within the Quarto environment (Citation). The code was kindly provided by Professor Garth Tarr (Citation) and was performed with base R and tidyverse(citation). The analysis from the survey data was also done in tidyverse(citation) and used ... other libraries (citation needed)
+
+```{r}
+library(tidyverse)
+library(ggplot2)
+# install.packages("remotes") #Add citation
+# remotes::install_github("ropenscilabs/gendercoder") # Add citation
+x = readr::read_csv("Assignment_Survey.csv")
+old_names = colnames(x)
+new_names = c("timestamp","n_units","task_approach","age",
+              "life","fass_unit","fass_major","novel",
+              "library","private_health","sugar_days","rent",
+              "post_code","haircut_days","laptop_brand",
+              "urinal_position","stall_position","n_weetbix","food_budget",
+              "pineapple","living_arrangements","height","uni_travel_method",
+              "feel_anxious","study_hrs","work","social_media",
+              "gender","sleep_time","diet","random_number",
+              "steak_preference","dominant_hand","normal_advanced","exercise_hrs",
+              "employment_hrs","on_time","used_r_before","team_role",
+              "social_media_hrs","uni_year","sport","wam","shoe_size")
+# overwrite the old names with the new names:
+colnames(x) = new_names
+# combine old and new into a data frame:
+name_combo = bind_cols(New = new_names, Old = old_names)
+name_combo |> gt::gt()
+
+x = x |> 
+  dplyr::mutate(
+    height_clean = readr::parse_number(height),
+    height_clean = case_when(
+      # convert meters to cm
+      height_clean <= 2.5 ~ height_clean * 100,
+      # convert the feet and inches to missing
+      height_clean <= 9 ~ NA_real_,
+      # convert inches to cm
+      height_clean < 90 ~ height_clean * 2.54,
+      TRUE ~ height_clean
+    )
+  )
+x = x |> 
+  mutate(height_clean = if_else(height_clean>100, height_clean, NA ))
+# check it's worked:
+# x |> select(height, height_clean) |> View()
+x= x |> mutate(
+  social_media_clean = tolower(social_media),
+  social_media_clean = str_replace_all(social_media_clean, '[[:punct:]]',' '),
+  social_media_clean = stringr::word(social_media_clean),
+  social_media_clean = case_when(
+    stringr::str_starts(social_media_clean,"in") ~ "instagram",
+    stringr::str_starts(social_media_clean,"ig") ~ "instagram",
+    stringr::str_starts(social_media_clean,"tik") ~ "tiktok",
+    stringr::str_starts(social_media_clean,"we") ~ "wechat",
+    stringr::str_starts(social_media_clean,"x") ~ "twitter",
+    stringr::str_starts(social_media_clean,"mess") ~ "facebook",
+    stringr::str_starts(social_media_clean,"bil") ~ "bilibili",
+    is.na(social_media_clean) ~ "none",
+    TRUE ~ social_media_clean
+  ),
+  social_media_clean = tools::toTitleCase(social_media_clean),
+  social_media_clean = forcats::fct_lump_min(social_media_clean, min = 10)
+)
+
+x = x |> 
+  mutate(identifier = row_number()) |> 
+  mutate(sport = replace_na(sport, "I don't play any sport"))
+
+sport <- x |>
+  dplyr::select(identifier, sport) |> 
+  tidyr::separate_rows(sport,
+                       sep = ", ") |> 
+  dplyr::mutate(sport = tools::toTitleCase(sport),
+                sport = factor(sport),
+                sport = forcats::fct_lump_min(sport, 2))
+
+sport_wide = sport |> 
+  mutate(value = 1) |> 
+  distinct() |> 
+  pivot_wider(id_cols = identifier,
+              names_from = sport, 
+              values_from = value,
+              values_fill = 0)
+
+x = x |>
+  left_join(sport_wide, by = "identifier") |> 
+  janitor::clean_names()
+colnames(x)
+
+x
+```
+
+## Results
+
+### Are anxiety levels independent of gender at the p \< 0.05 significance level (Independence)
+
+-   For independence you want to make sure that you are saying that in your hypothesis if there is an associated between gender and anxiety
+
+    ```{r}
+    anxious_vector = x$feel_anxious
+    gender_vector = x$gender
+    anxious_gender_df = data.frame(gender_vector, anxious_vector)
+    anxious_gender_df = na.omit(anxious_gender_df)
+
+    # Convert to lowercase
+    anxious_gender_df$gender_vector <- tolower(anxious_gender_df$gender_vector)
+
+    # Standardize male and female entries
+    anxious_gender_df$gender_vector[anxious_gender_df$gender_vector %in% c("male", "m", "man", "heterosexual male", "mothman")] <- "male"
+    anxious_gender_df$gender_vector[anxious_gender_df$gender_vector %in% c("female", "f", "woman", "women","femal")] <- "female"
+
+    # Filter out unwanted values
+    unwanted_values = c("non-binary", "pansexual", "n/a", "i dont want to answer this.")
+
+
+    anxious_gender_df <- anxious_gender_df %>%
+        filter(!(gender_vector %in% unwanted_values))
+    anxious_gender_df$anxious_vector[anxious_gender_df$anxious_vector %in% c(1, 2)] <- "1-2"
+    anxious_gender_table = table(anxious_gender_df)
+    res = chisq.test(anxious_gender_table)
+
+
+    bar_plot <- ggplot(anxious_gender_df, aes(x = anxious_vector, fill = gender_vector)) +
+      geom_bar(position = "fill") +
+      labs(title = "Histogram of Anxiety Levels by Gender",
+           x = "Anxiety Level", 
+           y = "Count") +
+      scale_fill_manual(values = c("pink", "blue"))  # Assuming you have two gender categories: male and female
+    bar_plot
+
+
+
+    knitr::kable(res$expected)
+    ```
+
+### Is there a significant difference at p \< 0.05 between the mean of males and females for how many hours of sleep they get? (two Sample $t$-test)
+
+```{r}
+# Using more descriptive column names
+gender_vector = x$gender
+sleep_vector = x$sleep_time
+
+gender_sleep_df = data.frame(gender = gender_vector, sleep = sleep_vector)
+gender_sleep_df = na.omit(gender_sleep_df)
+
+# Convert all gender values to lowercase
+gender_sleep_df$gender <- tolower(gender_sleep_df$gender)
+
+# Standardize male and female entries
+gender_sleep_df$gender[gender_sleep_df$gender %in% c("male", "m", "man", "heterosexual male", "mothman")] <- "male"
+gender_sleep_df$gender[gender_sleep_df$gender %in% c("female", "f", "woman", "women", "femal")] <- "female"
+
+# Filter out unwanted values
+unwanted_values = c("non-binary", "pansexual", "n/a", "i dont want to answer this.")
+gender_sleep_df <- gender_sleep_df %>%
+    filter(!(gender %in% unwanted_values))
+
+# Cleaning function
+clean_sleep <- function(sleep) {
+  sleep_cleaned <- str_replace_all(sleep, " hours|hrs| hrs|hr|h/day|h", "")
+  
+  if(str_detect(sleep_cleaned, "-")){
+    nums_split = strsplit(sleep_cleaned,"-")
+    nums = as.numeric(unlist(nums_split))
+    return(mean(nums))
+  } else{
+    return(as.numeric(sleep_cleaned))
+  }
+}
+
+x$sleep_time
+gender_sleep_df$sleep = sapply(gender_sleep_df$sleep, clean_sleep)
+gender_sleep_df = na.omit(gender_sleep_df)
+gender_sleep_df <- gender_sleep_df[gender_sleep_df$sleep != 6000.0, ]
+table(gender_sleep_df)
+
+
+displayTable = gender_sleep_df %>% group_by(gender) %>% summarise(
+  n = n(),
+  Mean = mean(sleep) %>% signif(2),
+  SD = sd(sleep) %>% signif(2)
+)
+
+knitr::kable(displayTable)
+# make QQ plot and Boxplot for normality
+```
+
+\

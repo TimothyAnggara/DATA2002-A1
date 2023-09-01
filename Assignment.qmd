@@ -1,0 +1,70 @@
+---
+title: "Assignment 1 DATA2002"
+date: "`r Sys.Date()`"
+author: "520641008"
+format: 
+  html: 
+    embed-resources: true # Creates a single HTML file as output
+    code-fold: true # Code folding; allows you to show/hide code chunks
+    code-tools: true # Includes a menu to download the code file 
+    # code-tools are particularly important if you use inline R to 
+    # improve the reproducibility of your report
+table-of-contents: true # (Optional) Creates a table of contents
+number-sections: true # (Optional) Puts numbers next to heading/subheadings
+---
+
+## General Discussion of the Data as a Whole
+
+1.  Is this a random sample of DATA2X02 students?
+2.  What are the potential biases? Which variables are most likely to be subjected to this bias?
+3.  Which questions needed improvement to generate useful data
+
+## Specific Hypothesis Test
+
+Identify 3 questions from the data and perform a hypothesis test for each question
+
+-   Give motivation for the selected question
+
+-   Report the hypothesis testing workflow
+
+-   Interpret the results
+
+-   Mention any limitations that may impact your findings
+
+-   Be specific in the results section
+
+Must have atleast 1 test from module 1
+
+-   Goodness of fit test for if it follows a normal distribution
+
+At least 1 test from module 2
+
+-   Test for independence in gender and laptop brand
+
+At least one test based on a resampling method
+
+-   
+
+```{r}
+library(tidyverse)
+x = readr::read_csv("Assignment_Survey.csv")
+# Make the column names better
+old_names = colnames(x)
+new_names = c("timestamp","n_units","task_approach","age",
+              "life","fass_unit","fass_major","novel",
+              "library","private_health","sugar_days","rent",
+              "post_code","haircut_days","laptop_brand",
+              "urinal_position","stall_position","n_weetbix","food_budget",
+              "pineapple","living_arrangements","height","uni_travel_method",
+              "feel_anxious","study_hrs","work","social_media",
+              "gender","sleep_time","diet","random_number",
+              "steak_preference","dominant_hand","normal_advanced","exercise_hrs",
+              "employment_hrs","on_time","used_r_before","team_role",
+              "social_media_hrs","uni_year","sport","wam","shoe_size")
+# overwrite the old names with the new names:
+colnames(x) = new_names
+# combine old and new into a data frame:
+name_combo = bind_cols(New = new_names, Old = old_names)
+name_combo |> gt::gt()
+
+```

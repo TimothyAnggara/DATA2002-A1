@@ -35,11 +35,18 @@ There are concerns regarding the phrasing of certain survey questions, which cou
 
 The code for wrangling the data was performed in R (Citation) within the Quarto environment (Citation). The code was kindly provided by Professor Garth Tarr (Citation) and was performed with base R and tidyverse(citation). The analysis from the survey data was also done in tidyverse(citation) and used ... other libraries (citation needed)
 
-```{r}
+```{r, echo=FALSE, results='hide', error=FALSE}
 library(tidyverse)
 library(ggplot2)
+library(gt)
+library(janitor)
+library(ggpubr)
+library(patchwork)
 # install.packages("remotes") #Add citation
 # remotes::install_github("ropenscilabs/gendercoder") # Add citation
+```
+
+```{r, echo=FALSE, results='hide', error=FALSE}
 x = readr::read_csv("Assignment_Survey.csv")
 old_names = colnames(x)
 new_names = c("timestamp","n_units","task_approach","age",
@@ -120,60 +127,35 @@ x = x |>
   janitor::clean_names()
 colnames(x)
 
-x
-```
-
-## Results
-
-### Are anxiety levels independent of gender at the p \< 0.05 significance level (Independence)
-
--   For independence you want to make sure that you are saying that in your hypothesis if there is an associated between gender and anxiety
-
-    ```{r}
-    anxious_vector = x$feel_anxious
-    gender_vector = x$gender
-    anxious_gender_df = data.frame(gender_vector, anxious_vector)
-    anxious_gender_df = na.omit(anxious_gender_df)
-
-    # Convert to lowercase
-    anxious_gender_df$gender_vector <- tolower(anxious_gender_df$gender_vector)
-
-    # Standardize male and female entries
-    anxious_gender_df$gender_vector[anxious_gender_df$gender_vector %in% c("male", "m", "man", "heterosexual male", "mothman")] <- "male"
-    anxious_gender_df$gender_vector[anxious_gender_df$gender_vector %in% c("female", "f", "woman", "women","femal")] <- "female"
-
-    # Filter out unwanted values
-    unwanted_values = c("non-binary", "pansexual", "n/a", "i dont want to answer this.")
-
-
-    anxious_gender_df <- anxious_gender_df %>%
-        filter(!(gender_vector %in% unwanted_values))
-    anxious_gender_df$anxious_vector[anxious_gender_df$anxious_vector %in% c(1, 2)] <- "1-2"
-    anxious_gender_table = table(anxious_gender_df)
-    res = chisq.test(anxious_gender_table)
-
-
-    bar_plot <- ggplot(anxious_gender_df, aes(x = anxious_vector, fill = gender_vector)) +
-      geom_bar(position = "fill") +
-      labs(title = "Histogram of Anxiety Levels by Gender",
-           x = "Anxiety Level", 
-           y = "Count") +
-      scale_fill_manual(values = c("pink", "blue"))  # Assuming you have two gender categories: male and female
-    bar_plot
-
-
-
-    knitr::kable(res$expected)
-    ```
-
-### Is there a significant difference at p \< 0.05 between the mean of males and females for how many hours of sleep they get? (two Sample $t$-test)
-
-```{r}
-# Using more descriptive column names
+# Cleaning Data for Section 2.1
+anxious_vector = x$feel_anxious
 gender_vector = x$gender
+anxious_gender_df = data.frame(gender_vector, anxious_vector)
+anxious_gender_df = na.omit(anxious_gender_df)
+
+# Convert to lowercase
+anxious_gender_df$gender_vector <- tolower(anxious_gender_df$gender_vector)
+
+# Standardize male and female entries
+anxious_gender_df$gender_vector[anxious_gender_df$gender_vector %in% c("male", "m", "man", "heterosexual male", "mothman")] <- "male"
+anxious_gender_df$gender_vector[anxious_gender_df$gender_vector %in% c("female", "f", "woman", "women","femal")] <- "female"
+
+# Filter out unwanted values
+unwanted_values = c("non-binary", "pansexual", "n/a", "i dont want to answer this.")
+
+
+anxious_gender_df <- anxious_gender_df %>%
+    filter(!(gender_vector %in% unwanted_values))
+anxious_gender_df$anxious_vector[anxious_gender_df$anxious_vector %in% c(1, 2)] <- "1-2"
+anxious_gender_table = table(anxious_gender_df)
+
+
+# Cleaning Data for Section 2.2
+# Using more descriptive column names
+gender_vector_2 = x$gender
 sleep_vector = x$sleep_time
 
-gender_sleep_df = data.frame(gender = gender_vector, sleep = sleep_vector)
+gender_sleep_df = data.frame(gender = gender_vector_2, sleep = sleep_vector)
 gender_sleep_df = na.omit(gender_sleep_df)
 
 # Convert all gender values to lowercase
@@ -201,12 +183,78 @@ clean_sleep <- function(sleep) {
   }
 }
 
-x$sleep_time
 gender_sleep_df$sleep = sapply(gender_sleep_df$sleep, clean_sleep)
 gender_sleep_df = na.omit(gender_sleep_df)
 gender_sleep_df <- gender_sleep_df[gender_sleep_df$sleep != 6000.0, ]
-table(gender_sleep_df)
 
+#Cleaning data for 2.3
+```
+
+## Results
+
+### Are anxiety levels independent of gender at the p \< 0.05 significance level (Independence)
+
+In Figure 1, we can see that the proportion of each level of anxiety of male vs female seems roughly equal with a slight skewness into males. To test if this skewness is significant at a significance level of 0.05, we shall conduct a Chi-square test of independence to check if anxiety and gender is independent of each other.
+
+```{r}
+bar_plot <- ggplot(anxious_gender_df, aes(x = anxious_vector, fill = gender_vector)) +
+  geom_bar(position = "fill") +
+  labs(title = "Histogram of Anxiety Levels by Gender",
+       x = "Anxiety Level", 
+       y = "Proportions") +
+  scale_fill_manual(values = c("pink", "blue"))  # Assuming you have two gender categories: male and female
+bar_plot
+```
+
+Figure 1. Histogram of the proportions of male to female regarding their anxiety level for each level with the exception of pooling category 1 and 2 due to assumption issues for the chi-square test of independence.
+
+```{r}
+res = chisq.test(anxious_gender_table)
+knitr::kable(res$expected)
+```
+
+Figure 2. Table of the expected counts showing expected counts are greater than 5
+
+1.   **Hypothesis** - $H_0$ : Anxiety level is independent of gender vs $H_1$: Anxiety level is **NOT** independent of gender
+
+2.  **Assumptions:** Independent observations and the expected counts in each cell is $\geq 5$
+
+3.  **Test Statistic:**
+
+    $$
+    \displaystyle T = \sum_{i=1}^r\sum_{j=1}^c\frac{(Y_{ij} - e_{ij})^2}{e_{ij}}
+    $$
+
+    -   Where $r$ = number of rows
+
+    -    $c$ = number of columns
+
+    -   $Y_{ij}$ = observed cell count at index $(i,j)$
+
+    ```{=html}
+    <!-- -->
+    ```
+    -    $e_{ij}$ = expected cell count at index $(i,j)$
+
+4.  **Observed Test Statistic:** $t_0 = 9.49$
+
+5.  **P-Value:** $P(\chi_{8}^2 \ge t_0) = 0.3025$
+
+6.  **Decision:** Since the p-value is larger than 0.05, we retain the null hypothesis and conclude that Anxiety level and Gender among the DATA2X02 cohort are independent of each other
+
+### Is there a Significant difference at p \< 0.05 between the mean of males and females for how many hours of sleep they get?
+
+```{r}
+
+```
+
+```{r}
+ggplot(gender_sleep_df, aes(x=sleep, fill=gender)) + 
+  geom_histogram(binwidth = 1) + 
+  labs(title="Histogram of Sleep Hours by Gender", x="Sleep Hours", y="Count") + 
+  scale_x_continuous(breaks=seq(min(gender_sleep_df$sleep), max(gender_sleep_df$sleep), by=1)) + 
+  scale_y_continuous(breaks=seq(0, 110 + 5, by=15)) + 
+  theme_minimal()
 
 displayTable = gender_sleep_df %>% group_by(gender) %>% summarise(
   n = n(),
@@ -215,7 +263,31 @@ displayTable = gender_sleep_df %>% group_by(gender) %>% summarise(
 )
 
 knitr::kable(displayTable)
-# make QQ plot and Boxplot for normality
 ```
 
-\
+```{r}
+# make QQ plot and Boxplot for normality
+p1 <-  ggplot(gender_sleep_df,aes(x = gender, y = sleep, colour = gender)) + 
+  geom_boxplot(outlier.shape = NA) + #remove outliers so not confused with jitter
+  geom_jitter() +
+  scale_y_continuous(breaks=seq(floor(min(gender_sleep_df$sleep)), 
+                                ceiling(max(gender_sleep_df$sleep)), by=1)) +
+  labs(y = "Sleep (hours)", x = "Gender")
+
+p2 <-  ggqqplot(gender_sleep_df, x = "sleep", facet.by = "gender")
+
+p1 + p2 + plot_annotation(tag_levels = 'A')
+```
+
+1.   **Hypothesis**
+2.  **Assumptions**
+3.  **Test Statistic**
+4.  **Observed Test Statistic**
+5.  **P-Value**
+6.  **Decision**
+
+### Does exercise influence their anxiety levels at p \< 0.05? (test of independence)
+
+```{r}
+
+```

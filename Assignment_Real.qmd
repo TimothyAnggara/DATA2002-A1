@@ -15,27 +15,28 @@ number-sections: true # (Optional) Puts numbers next to heading/subheadings
 
 ## Introduction
 
-Professor Garth Tarr conducted a survey targeting students of the course DATA2X02 (Citation), with the results collected through Ed, a community forum dedicated to student's questions and discussions. While the survey was prominently featured as a pinned announcement on the platform, Although Professor Tarr announced the survey in lectures, we must note that not all DATA2X02 students actively participate on Ed or watch the lectures. Consequently, this means that the sample from which the survey results were drawn is not a random representation of all DATA2X02 students. (simplify this)
+Professor Garth Tarr conducted a survey targeting students of the course DATA2X02 (Citation), with the results collected through Ed, a community forum dedicated to student's questions and discussions. While the survey was prominently featured as a pinned announcement on the platform, Although Professor Tarr announced the survey in lectures, we must note that not all DATA2X02 students actively participate on Ed or watch the lectures. Consequently, this means that the sample from which the survey results were drawn is not a random representation of all DATA2X02 students.
 
-The methodology of the survey potentially introduces several biases. The most prominent is a selection bias, resulting from the fact that the survey was exclusively available on Ed, a platform not universally used by all DATA2X02 students. This means that students not active on Ed were inadvertently excluded. Additionally, there might be a adherance bias, where certain students might start the survey but not complete it, further skewing the data. (primarily targeted to 2X02 students)
-
--   Measurement bias
+The methodology of the survey potentially introduces several biases. The most prominent is a selection bias, resulting from the fact that the survey was exclusively available on Ed, a platform not universally used by all DATA2X02 students. This means that students not active on Ed were inadvertently excluded. Additionally, there might be a adherence bias, where certain students might start the survey but not complete it, further skewing the data. (primarily targeted to 2X02 students)
 
 There are concerns regarding the phrasing of certain survey questions, which could lead to bias or misinterpretation by respondents. For example, the question, "Do you tend to lean towards saying 'yes' or towards saying 'no' to things throughout life?" introduces ambiguity because of the vague reference to "things." and having the responses limited to only "yes" or "no" raises some bias. Additionally, the questions about height and the interval between haircuts allowed any form of response. This unrestricted format could lead to inconsistencies in the data if students provide answers in unexpected units or formats. Ideally, responses should have been limited to numerical inputs, and specifications should have been given for whether height should be in metric or imperial units.
-
--   Maybe can also add how the survey had no required questions so filling out empty was valid
-
--   Laptop brand should have been a selected
-
--   Pineapple on pizza, why have other?
-
--   No number validation on questions which request number
 
 ### Data Wrangling
 
 The code for wrangling the data was performed in R (Citation) within the Quarto environment (Citation). The code was kindly provided by Professor Garth Tarr (Citation) and was performed with base R and tidyverse(citation). The analysis from the survey data was also done in tidyverse(citation) and used ... other libraries (citation needed)
+<!---
 
-```{r, echo=FALSE, results='hide', error=FALSE}
+Maybe can also add how the survey had no required questions so filling out empty was valid
+
+Laptop brand should have been a selected
+
+Pineapple on pizza, why have other?
+
+No number validation on questions which request number
+
+--->
+
+```{r, echo=FALSE, results='hide', error=FALSE, message=FALSE, warning=FALSE}
 library(tidyverse)
 library(ggplot2)
 library(gt)
@@ -46,7 +47,7 @@ library(patchwork)
 # remotes::install_github("ropenscilabs/gendercoder") # Add citation
 ```
 
-```{r, echo=FALSE, results='hide', error=FALSE}
+```{r results ='hide', error=FALSE, message=FALSE, warning=FALSE}
 x = readr::read_csv("Assignment_Survey.csv")
 old_names = colnames(x)
 new_names = c("timestamp","n_units","task_approach","age",
@@ -146,9 +147,10 @@ unwanted_values = c("non-binary", "pansexual", "n/a", "i dont want to answer thi
 
 anxious_gender_df <- anxious_gender_df %>%
     filter(!(gender_vector %in% unwanted_values))
-anxious_gender_df$anxious_vector[anxious_gender_df$anxious_vector %in% c(1, 2)] <- "1-2"
-anxious_gender_table = table(anxious_gender_df)
 
+anxious_gender_df$anxious_vector[anxious_gender_df$anxious_vector %in% c(1, 2)] <- "1-2"
+
+anxious_gender_table <- table(anxious_gender_df)
 
 # Cleaning Data for Section 2.2
 # Using more descriptive column names
@@ -186,8 +188,20 @@ clean_sleep <- function(sleep) {
 gender_sleep_df$sleep = sapply(gender_sleep_df$sleep, clean_sleep)
 gender_sleep_df = na.omit(gender_sleep_df)
 gender_sleep_df <- gender_sleep_df[gender_sleep_df$sleep != 6000.0, ]
+males <- gender_sleep_df %>% 
+  filter(gender == "male") %>% 
+  pull(sleep)
+
+females <- gender_sleep_df %>% 
+  filter(gender == "female") %>% 
+  pull(sleep)
 
 #Cleaning data for 2.3
+raw_anxious_vector = x$feel_anxious
+raw_exercise_vector = x$exercise_hrs
+anxious_vector_df = data.frame(anxious = raw_anxious_vector, exercise = raw_exercise_vector)
+anxious_vector_df = na.omit(anxious_vector_df)
+anxious_vector_df <- anxious_vector_df %>% filter(exercise!=150)
 ```
 
 ## Results
@@ -196,26 +210,33 @@ gender_sleep_df <- gender_sleep_df[gender_sleep_df$sleep != 6000.0, ]
 
 In Figure 1, we can see that the proportion of each level of anxiety of male vs female seems roughly equal with a slight skewness into males. To test if this skewness is significant at a significance level of 0.05, we shall conduct a Chi-square test of independence to check if anxiety and gender is independent of each other.
 
-```{r}
+```{r message=FALSE, warning=FALSE, error=FALSE}
 bar_plot <- ggplot(anxious_gender_df, aes(x = anxious_vector, fill = gender_vector)) +
   geom_bar(position = "fill") +
   labs(title = "Histogram of Anxiety Levels by Gender",
        x = "Anxiety Level", 
        y = "Proportions") +
-  scale_fill_manual(values = c("pink", "blue"))  # Assuming you have two gender categories: male and female
+  #scale_fill_manual(values = c("pink", "blue")) + # Assuming you have two gender categories: male and female
+  theme_minimal()
 bar_plot
 ```
 
 Figure 1. Histogram of the proportions of male to female regarding their anxiety level for each level with the exception of pooling category 1 and 2 due to assumption issues for the chi-square test of independence.
 
-```{r}
+```{r message=FALSE, warning=FALSE, error=FALSE}
 res = chisq.test(anxious_gender_table)
+res$expected = round(res$expected, 2)
+current_order <- colnames(res$expected)
+# Desired column order with '10' last
+new_order <- c(current_order[current_order != "10"], "10")
+# Rearrange the columns
+res$expected <- res$expected[, new_order]
 knitr::kable(res$expected)
 ```
 
-Figure 2. Table of the expected counts showing expected counts are greater than 5
+Table 1. Table of the expected counts
 
-1.   **Hypothesis** - $H_0$ : Anxiety level is independent of gender vs $H_1$: Anxiety level is **NOT** independent of gender
+1.  **Hypothesis** - $H_0$ : Anxiety level is independent of gender vs $H_1$: Anxiety level is **NOT** independent of gender
 
 2.  **Assumptions:** Independent observations and the expected counts in each cell is $\geq 5$
 
@@ -227,14 +248,11 @@ Figure 2. Table of the expected counts showing expected counts are greater than 
 
     -   Where $r$ = number of rows
 
-    -    $c$ = number of columns
+    -   $c$ = number of columns
 
     -   $Y_{ij}$ = observed cell count at index $(i,j)$
 
-    ```{=html}
-    <!-- -->
-    ```
-    -    $e_{ij}$ = expected cell count at index $(i,j)$
+    -   $e_{ij}$ = expected cell count at index $(i,j)$
 
 4.  **Observed Test Statistic:** $t_0 = 9.49$
 
@@ -244,11 +262,7 @@ Figure 2. Table of the expected counts showing expected counts are greater than 
 
 ### Is there a Significant difference at p \< 0.05 between the mean of males and females for how many hours of sleep they get?
 
-```{r}
-
-```
-
-```{r}
+```{r message=FALSE, warning=FALSE, error=FALSE}
 ggplot(gender_sleep_df, aes(x=sleep, fill=gender)) + 
   geom_histogram(binwidth = 1) + 
   labs(title="Histogram of Sleep Hours by Gender", x="Sleep Hours", y="Count") + 
@@ -256,6 +270,11 @@ ggplot(gender_sleep_df, aes(x=sleep, fill=gender)) +
   scale_y_continuous(breaks=seq(0, 110 + 5, by=15)) + 
   theme_minimal()
 
+```
+
+Figure 2.Histogram of how much sleep does an individual get filled by gender
+
+```{r}
 displayTable = gender_sleep_df %>% group_by(gender) %>% summarise(
   n = n(),
   Mean = mean(sleep) %>% signif(2),
@@ -265,7 +284,9 @@ displayTable = gender_sleep_df %>% group_by(gender) %>% summarise(
 knitr::kable(displayTable)
 ```
 
-```{r}
+Table 2. Numerical summaries of males and females' sleep hours
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
 # make QQ plot and Boxplot for normality
 p1 <-  ggplot(gender_sleep_df,aes(x = gender, y = sleep, colour = gender)) + 
   geom_boxplot(outlier.shape = NA) + #remove outliers so not confused with jitter
@@ -279,15 +300,79 @@ p2 <-  ggqqplot(gender_sleep_df, x = "sleep", facet.by = "gender")
 p1 + p2 + plot_annotation(tag_levels = 'A')
 ```
 
-1.   **Hypothesis**
-2.  **Assumptions**
-3.  **Test Statistic**
-4.  **Observed Test Statistic**
-5.  **P-Value**
-6.  **Decision**
+Figure 3. Side by side boxplots and QQ plots which shows that there is a overwhelming overlap in hours slept in males and females
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
+res2 = t.test(males, females, alternative = "two.sided", var.equal = TRUE)
+```
+
+1.  **Hypothesis:** $H_0:$ The mean of sleep in males vs females are the same vs $H_1:$ The mean of sleep in males vs females are **NOT** the same
+2.  **Assumptions:** Samples are independent, normally distributed (Because we have quite a large sample size, we can rely on the Central Limit Theorem for normality even though the QQ plot and histogram says otherwise), and equal variance (Table shows variance that are somewhat close together)
+3.  **Test Statistic:** $T = \dfrac{{\bar X} - {\bar Y}}{S_p \sqrt{\frac{1}{n_x} + \frac{1}{n_y}}}$ where $S^2_p = \dfrac{(n_x-1) S_{x}^2 + (n_y-1) S_{y}^2}{n_x+n_y-2}$ and under, $H0:T \sim t_{n_x+n_y-2}$ Where $n_x$ = 179 and $n_y$ = 111
+4.  **Observed Test Statistic:** $t_0$ = 1.076
+5.  **P-Value:** 0.2828
+6.  **Decision:** Because our p-value was much larger than 0.05, there is evidence that suggest that we should retain the null hypothesis and reject the alternative hypothesis, thus saying that there is no significant difference between the mean hours of sleep for males vs females in the DATA2X02 Cohort.
 
 ### Does exercise influence their anxiety levels at p \< 0.05? (test of independence)
 
 ```{r}
+#ggplot(anxious_vector_df, aes(x = anxious)) +
+#  geom_histogram(binwidth = 1, fill = "skyblue", color = "black", alpha = 0.7) +
+#  ggtitle("Histogram of Anxious Scores") +
+#  xlab("Anxious Score")
 
+#ggplot(anxious_vector_df, aes(x = exercise)) +
+#  geom_histogram(binwidth = 1, fill = "lightgreen", color = "black", alpha = 0.7) +
+#  ggtitle("Histogram of Hours of Exercise") +
+#  xlab("Hours of Exercise")
+
+ggplot(anxious_vector_df, aes(x = as.factor(anxious), y = exercise)) +
+  geom_boxplot(alpha = 0.7) +  # Box plot
+  geom_jitter(width = 0.2, aes(color = as.factor(anxious)), size = 2, alpha = 0.7) +  # Individual points with a little jitter to prevent overlap
+  ggtitle("Box plot of Exercise Hours by Anxious Score with Data Points") +
+  xlab("Anxious Score") +
+  ylab("Hours of Exercise") +
+  scale_color_discrete(name = "Anxious Level")  # Color legend
 ```
+
+Figure 4. Box plots illustrating the distributions of exercise hours across different anxiety levels
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
+set.seed(1)
+res3 = chisq.test(table(anxious_vector_df),simulate.p.value = TRUE, B = 10000)
+```
+
+1.  **Hypothesis** - $H_0:$ Hours spent exercising weekly is independent of anxiety levels vs $H_1$: Anxiety level is **NOT** independent of hours spent exercising
+
+2.  **Assumptions:** Independent observations
+
+3.  **Test Statistic:**
+
+    $$
+    \displaystyle T = \sum_{i=1}^r\sum_{j=1}^c\frac{(Y_{ij} - e_{ij})^2}{e_{ij}}
+    $$
+
+    -   Where $r$ = number of rows
+
+    -   $c$ = number of columns
+
+    -   $Y_{ij}$ = observed cell count at index $(i,j)$
+
+    -   $e_{ij}$ = expected cell count at index $(i,j)$
+
+4.  **Observed Test Statistic:** $t_0 = 201.87$
+
+5.  **P-Value:** $0.1337$
+
+6.  **Decision:** Since the p-value is larger than 0.05, we retain the null hypothesis and conclude that Anxiety level and hours spent exercising among the DATA2X02 cohort are independent of each other
+
+## Conclusion
+
+We extend our gratitude to Professor Garth Tarr for providing the survey data from the DATA2X02 Cohort this semester, which enabled a comprehensive examination of the cohort's perspectives on specific subjects.
+
+In the scope of this report, we delved into the relationships between anxiety, sleep, exercise, and gender. Our analysis suggests that within our cohort, no significant disparities exist across these four parameters. Specifically, anxiety levels and gender appear to be independent of each other, the average sleep duration is consistent across male and female respondents, and the amount of time dedicated to exercise does not vary significantly with varying levels of anxiety.
+
+However, we should approach these conclusions with caution. The independence assumption of the test conducted might have been compromised due to some biases and survey : the respondents were aware that their responses could be used in a subsequent assignment, and there was no restriction on the number of submissions by a single respondent. 
+
+
+## References
